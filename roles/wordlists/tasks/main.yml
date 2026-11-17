@@ -1,0 +1,11 @@
+---
+- name: Clone wordlist repositories
+  ansible.builtin.git:
+    repo: "{{ item.repo }}"
+    dest: "{{ wordlists_dir }}/{{ item.name }}"
+    depth: 1
+    single_branch: true
+    update: false
+  loop: "{{ wordlists_repos }}"
+  loop_control:
+    label: "{{ item.name }}"

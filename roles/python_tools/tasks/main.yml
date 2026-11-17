@@ -1,0 +1,40 @@
+---
+- name: Install Python build dependencies
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - gcc
+      - python3-devel
+      - libffi-devel
+    state: present
+
+- name: Create venv root
+  ansible.builtin.file:
+    path: "{{ python_venv_root }}"
+    state: directory
+    mode: "0755"
+
+- name: Create per-tool virtual environments and install packages
+  ansible.builtin.pip:
+    name: "{{ item.package }}"
+    version: "{{ item.version | default(omit) }}"
+    virtualenv: "{{ python_venv_root }}/{{ item.name }}"
+    virtualenv_command: python3 -m venv
+    state: present
+  loop: "{{ python_tools }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Expose tool entrypoints on PATH
+  ansible.builtin.shell: |
+    for f in "{{ python_venv_root }}/{{ item.name }}"/bin/*; do
+      b=$(basename "$f")
+      case "$b" in
+        python*|pip*|activate*|Activate*|wheel|easy_install*) continue ;;
+      esac
+      ln -sfn "$f" "{{ ansible_env.HOME }}/.local/bin/$b"
+    done
+  loop: "{{ python_tools }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: false

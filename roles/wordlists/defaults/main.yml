@@ -1,0 +1,2 @@
+---
+wordlists_dir: "{{ ansible_env.HOME }}/toolkit/wordlists"

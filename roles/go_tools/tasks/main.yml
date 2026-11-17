@@ -1,0 +1,20 @@
+---
+- name: Install Go and build dependencies
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - golang
+      - gcc
+      - libpcap-devel
+    state: present
+
+- name: Install Go-based tools
+  ansible.builtin.command:
+    cmd: "go install {{ item.pkg }}@{{ item.version }}"
+    creates: "{{ go_bin }}/{{ item.name }}"
+  environment:
+    GOBIN: "{{ go_bin }}"
+    PATH: "/usr/bin:/usr/local/bin:{{ ansible_env.PATH }}"
+  loop: "{{ go_tools }}"
+  loop_control:
+    label: "{{ item.name }}"

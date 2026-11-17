@@ -1,0 +1,37 @@
+---
+base_packages:
+  - fish
+  - git
+  - curl
+  - wget
+  - jq
+  - ripgrep
+  - fd-find
+  - tmux
+  - nmap
+  - nmap-ncat
+  - bind-utils
+  - whois
+  - tcpdump
+  - python3
+  - python3-pip
+  - python3-virtualenv
+
+go_tools:
+  - { name: subfinder, pkg: "github.com/projectdiscovery/subfinder/v2/cmd/subfinder", version: latest }
+  - { name: httpx, pkg: "github.com/projectdiscovery/httpx/cmd/httpx", version: latest }
+  - { name: nuclei, pkg: "github.com/projectdiscovery/nuclei/v3/cmd/nuclei", version: latest }
+  - { name: naabu, pkg: "github.com/projectdiscovery/naabu/v2/cmd/naabu", version: latest }
+  - { name: katana, pkg: "github.com/projectdiscovery/katana/cmd/katana", version: latest }
+  - { name: dnsx, pkg: "github.com/projectdiscovery/dnsx/cmd/dnsx", version: latest }
+
+python_tools:
+  - { name: impacket, package: impacket }
+  - { name: netexec, package: netexec }
+  - { name: certipy, package: certipy-ad }
+  - { name: sqlmap, package: sqlmap }
+  - { name: pwntools, package: pwntools }
+  - { name: bloodhound, package: bloodhound }
+
+wordlists_repos:
+  - { name: seclists, repo: "https://github.com/danielmiessler/SecLists.git" }
