@@ -1,0 +1,153 @@
+---
+- name: Verify SSH public key exists
+  ansible.builtin.stat:
+    path: "{{ vm_ssh_pubkey_file }}"
+  register: pubkey
+
+- name: Fail if no SSH public key is present
+  ansible.builtin.assert:
+    that: pubkey.stat.exists
+    fail_msg: "No SSH public key at {{ vm_ssh_pubkey_file }} - create one with: ssh-keygen -t ed25519"
+
+- name: Install virtualization host packages
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - libvirt
+      - virt-install
+      - qemu-kvm
+      - qemu-img
+      - libvirt-nss
+    state: present
+
+- name: Ensure libvirtd is running
+  become: true
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: started
+    enabled: true
+
+- name: Check nsswitch for libvirt_guest
+  become: true
+  ansible.builtin.command: grep -q libvirt_guest /etc/nsswitch.conf
+  register: nss_check
+  failed_when: false
+  changed_when: false
+
+- name: Enable libvirt_guest name resolution on the host
+  become: true
+  ansible.builtin.replace:
+    path: /etc/nsswitch.conf
+    regexp: '^hosts:(\s+)(.*)$'
+    replace: 'hosts:\1libvirt_guest \2'
+  when: nss_check.rc != 0
+
+- name: Deploy firewalld zone for the lab network
+  become: true
+  ansible.builtin.template:
+    src: firewalld-zone-tools.xml.j2
+    dest: /etc/firewalld/zones/tools.xml
+    mode: "0644"
+  notify: reload firewalld
+
+- name: Deploy firewalld policy isolating the lab network from the LAN
+  become: true
+  ansible.builtin.template:
+    src: firewalld-policy-tools-no-lan.xml.j2
+    dest: /etc/firewalld/policies/tools-no-lan.xml
+    mode: "0644"
+  notify: reload firewalld
+
+- name: Apply firewalld changes before starting the network
+  ansible.builtin.meta: flush_handlers
+
+- name: Check whether the lab network exists
+  become: true
+  ansible.builtin.command: "virsh net-info {{ vm_network_name }}"
+  register: netinfo
+  failed_when: false
+  changed_when: false
+
+- name: Render the lab network definition
+  become: true
+  ansible.builtin.template:
+    src: tools-vm-net.xml.j2
+    dest: "/var/tmp/{{ vm_network_name }}.xml"
+    mode: "0644"
+  when: netinfo.rc != 0
+
+- name: Define and start the lab network
+  become: true
+  ansible.builtin.command: "{{ item }}"
+  loop:
+    - "virsh net-define /var/tmp/{{ vm_network_name }}.xml"
+    - "virsh net-autostart {{ vm_network_name }}"
+    - "virsh net-start {{ vm_network_name }}"
+  when: netinfo.rc != 0
+
+- name: Check whether the VM exists
+  become: true
+  ansible.builtin.command: "virsh dominfo {{ vm_name }}"
+  register: dominfo
+  failed_when: false
+  changed_when: false
+
+- name: Download the Fedora Cloud base image
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ vm_base_image_url }}"
+    dest: "{{ vm_base_image }}"
+    checksum: "{{ vm_base_image_checksum | default(omit, true) }}"
+    mode: "0644"
+  when: dominfo.rc != 0
+
+- name: Create the VM disk from the base image
+  become: true
+  ansible.builtin.command:
+    cmd: "cp --reflink=auto {{ vm_base_image }} {{ vm_disk }}"
+    creates: "{{ vm_disk }}"
+  when: dominfo.rc != 0
+
+- name: Grow the VM disk
+  become: true
+  ansible.builtin.command: "qemu-img resize {{ vm_disk }} {{ vm_disk_size }}"
+  when: dominfo.rc != 0
+
+- name: Restore SELinux context on the VM disk
+  become: true
+  ansible.builtin.command: "restorecon -F {{ vm_disk }}"
+  when: dominfo.rc != 0
+  changed_when: false
+
+- name: Render cloud-init user-data
+  become: true
+  ansible.builtin.template:
+    src: cloud-init-user-data.yaml.j2
+    dest: "{{ vm_cloudinit_userdata }}"
+    mode: "0644"
+  when: dominfo.rc != 0
+
+- name: Create and boot the VM
+  become: true
+  ansible.builtin.command: >
+    virt-install
+    --name {{ vm_name }}
+    --memory {{ vm_memory }}
+    --vcpus {{ vm_vcpus }}
+    --cpu host-passthrough
+    --disk path={{ vm_disk }},format=qcow2,bus=virtio
+    --import
+    --osinfo detect=on,require=off
+    --network network={{ vm_network_name }},model=virtio
+    --graphics {{ 'spice' if with_desktop | default(false) else 'none' }}
+    --cloud-init user-data={{ vm_cloudinit_userdata }}
+    --noautoconsole
+  when: dominfo.rc != 0
+
+- name: Wait for the VM to accept SSH
+  ansible.builtin.wait_for:
+    host: "{{ vm_name }}"
+    port: 22
+    timeout: 300
+    delay: 15
+  when: dominfo.rc != 0

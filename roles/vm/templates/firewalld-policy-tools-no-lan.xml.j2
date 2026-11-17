@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policy target="CONTINUE" priority="-100">
+  <short>tools-no-lan</short>
+  <description>Reject forwarded traffic from the tools lab network to private, CGNAT and link-local ranges.</description>
+  <ingress-zone name="tools"/>
+  <egress-zone name="ANY"/>
+  <rule family="ipv4"><destination address="10.0.0.0/8"/><reject/></rule>
+  <rule family="ipv4"><destination address="172.16.0.0/12"/><reject/></rule>
+  <rule family="ipv4"><destination address="192.168.0.0/16"/><reject/></rule>
+  <rule family="ipv4"><destination address="100.64.0.0/10"/><reject/></rule>
+  <rule family="ipv4"><destination address="169.254.0.0/16"/><reject/></rule>
+  <rule family="ipv6"><destination address="fc00::/7"/><reject/></rule>
+</policy>

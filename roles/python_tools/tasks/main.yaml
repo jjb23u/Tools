@@ -38,3 +38,17 @@
   loop_control:
     label: "{{ item.name }}"
   changed_when: false
+
+- name: Create the analysis venv with network libraries
+  ansible.builtin.pip:
+    name: "{{ python_libs }}"
+    virtualenv: "{{ python_venv_root }}/analysis"
+    virtualenv_command: python3 -m venv
+    state: present
+
+- name: Expose the analysis interpreter as 'apy'
+  ansible.builtin.file:
+    src: "{{ python_venv_root }}/analysis/bin/python"
+    dest: "{{ ansible_env.HOME }}/.local/bin/apy"
+    state: link
+    force: true

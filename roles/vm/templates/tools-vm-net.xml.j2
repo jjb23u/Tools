@@ -1,0 +1,16 @@
+<network>
+  <name>{{ vm_network_name }}</name>
+  <forward mode="nat"/>
+  <bridge name="{{ vm_network_bridge }}" zone="tools" stp="on" delay="0"/>
+  <domain name="{{ vm_network_domain }}" localOnly="yes"/>
+  <dns>
+{% for fwd in vm_dns_forwarders %}
+    <forwarder addr="{{ fwd }}"/>
+{% endfor %}
+  </dns>
+  <ip address="{{ vm_network_address }}" netmask="{{ vm_network_netmask }}">
+    <dhcp>
+      <range start="{{ vm_dhcp_start }}" end="{{ vm_dhcp_end }}"/>
+    </dhcp>
+  </ip>
+</network>

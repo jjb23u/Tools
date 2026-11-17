@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone target="ACCEPT">
+  <short>tools</short>
+  <description>Isolated tools lab network. Guests get DHCP, DNS and ICMP to the host; all other host access is rejected.</description>
+  <service name="dhcp"/>
+  <service name="dns"/>
+  <protocol value="icmp"/>
+  <rule priority="127">
+    <reject/>
+  </rule>
+</zone>

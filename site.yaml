@@ -1,0 +1,10 @@
+---
+- name: Configure the tools lab VM
+  hosts: all
+  gather_facts: true
+  roles:
+    - { role: base, tags: [base] }
+    - { role: go_tools, tags: [go, tools] }
+    - { role: python_tools, tags: [python, tools] }
+    - { role: wordlists, tags: [wordlists] }
+    - { role: desktop, tags: [desktop], when: "with_desktop | default(false)" }
