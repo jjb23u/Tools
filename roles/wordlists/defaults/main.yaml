@@ -1,11 +1,48 @@
 ---
-- name: Clone wordlist repositories  # noqa: latest[git]
-  ansible.builtin.git:
-    repo: "{{ item.repo }}"
-    dest: "{{ wordlists_dir }}/{{ item.name }}"
-    depth: 1
-    single_branch: true
-    update: false
-  loop: "{{ wordlists_repos }}"
-  loop_control:
-    label: "{{ item.name }}"
+wordlists_dir: "{{ ansible_env.HOME }}/toolkit/wordlists"
+wordlists_seclists_repo: "https://github.com/danielmiessler/SecLists.git"
+wordlists_seclists_dir: "{{ wordlists_dir }}/seclists"
+
+wordlists_training_paths:
+  - /Discovery/Web-Content/common.txt
+  - /Discovery/Web-Content/big.txt
+  - /Discovery/Web-Content/quickhits.txt
+  - /Discovery/Web-Content/raft-small-*.txt
+  - /Discovery/Web-Content/raft-medium-*.txt
+  - /Discovery/Web-Content/DirBuster-2007_directory-list-2.3-small.txt
+  - /Discovery/Web-Content/DirBuster-2007_directory-list-2.3-medium.txt
+  - /Discovery/Web-Content/web-extensions.txt
+  - /Discovery/Web-Content/burp-parameter-names.txt
+  - /Discovery/Web-Content/api/
+  - /Discovery/DNS/subdomains-top1million-5000.txt
+  - /Discovery/DNS/subdomains-top1million-20000.txt
+  - /Discovery/DNS/subdomains-top1million-110000.txt
+  - /Fuzzing/LFI/
+  - /Fuzzing/Databases/
+  - /Fuzzing/XSS/
+  - /Fuzzing/special-chars.txt
+  - /Fuzzing/command-injection-commix.txt
+  - /Fuzzing/login_bypass.txt
+  - /Fuzzing/4-digits-0000-9999.txt
+  - /Passwords/Leaked-Databases/rockyou.txt.tar.gz
+  - /Passwords/Common-Credentials/10k-most-common.txt
+  - /Passwords/Common-Credentials/100k-most-used-passwords-NCSC.txt
+  - /Passwords/Common-Credentials/top-20-common-SSH-passwords.txt
+  - /Passwords/Common-Credentials/xato-net-10-million-passwords-10000.txt
+  - /Passwords/Default-Credentials/
+  - /Usernames/top-usernames-shortlist.txt
+  - /Usernames/cirt-default-usernames.txt
+  - /Usernames/Names/names.txt
+
+wordlists_sparse_paths: "{{ wordlists_training_paths + (wordlists_extra_paths | default([])) }}"
+
+wordlists_aliases:
+  - { link: SecLists, target: "{{ wordlists_seclists_dir }}" }
+  - { link: dirb/common.txt, target: "{{ wordlists_seclists_dir }}/Discovery/Web-Content/common.txt" }
+  - { link: dirb/big.txt, target: "{{ wordlists_seclists_dir }}/Discovery/Web-Content/big.txt" }
+  - { link: dirbuster/directory-list-2.3-small.txt, target: "{{ wordlists_seclists_dir }}/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-small.txt" }
+  - { link: dirbuster/directory-list-2.3-medium.txt, target: "{{ wordlists_seclists_dir }}/Discovery/Web-Content/DirBuster-2007_directory-list-2.3-medium.txt" }
+
+wordlists_system_links:
+  - { path: /usr/share/wordlists, src: "{{ wordlists_dir }}" }
+  - { path: /usr/share/seclists, src: "{{ wordlists_seclists_dir }}" }

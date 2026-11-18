@@ -1,11 +1,94 @@
 ---
-- name: Clone wordlist repositories
-  ansible.builtin.git:
-    repo: "{{ item.repo }}"
-    dest: "{{ wordlists_dir }}/{{ item.name }}"
-    depth: 1
-    single_branch: true
-    update: false
-  loop: "{{ wordlists_repos }}"
+- name: Check for an existing SecLists clone
+  ansible.builtin.stat:
+    path: "{{ wordlists_seclists_dir }}/.git"
+  register: wordlists_seclists_git
+
+- name: Check whether the clone is a partial clone  # noqa: command-instead-of-module
+  ansible.builtin.command: "git -C {{ wordlists_seclists_dir }} config --get remote.origin.partialclonefilter"
+  register: wordlists_partial
+  failed_when: false
+  changed_when: false
+  when: wordlists_seclists_git.stat.exists
+
+- name: Remove a full SecLists clone from the old layout
+  ansible.builtin.file:
+    path: "{{ wordlists_seclists_dir }}"
+    state: absent
+  when: wordlists_seclists_git.stat.exists and wordlists_partial.rc != 0
+
+- name: Clone SecLists without file contents  # noqa: command-instead-of-module
+  ansible.builtin.command:
+    argv:
+      - git
+      - clone
+      - --depth
+      - "1"
+      - --filter=blob:none
+      - --sparse
+      - "{{ wordlists_seclists_repo }}"
+      - "{{ wordlists_seclists_dir }}"
+    creates: "{{ wordlists_seclists_dir }}/.git"
+
+- name: Read the current sparse-checkout paths  # noqa: command-instead-of-module
+  ansible.builtin.command: "git -C {{ wordlists_seclists_dir }} sparse-checkout list"
+  register: wordlists_sparse_current
+  failed_when: false
+  changed_when: false
+
+- name: Check out only the selected wordlists
+  ansible.builtin.command:
+    argv: "{{ ['git', '-C', wordlists_seclists_dir, 'sparse-checkout', 'set', '--no-cone'] + wordlists_sparse_paths }}"
+  changed_when: true
+  when:
+    - not wordlists_full | default(false)
+    - wordlists_sparse_current.rc != 0 or wordlists_sparse_current.stdout_lines != wordlists_sparse_paths
+
+- name: Check out every wordlist  # noqa: command-instead-of-module
+  ansible.builtin.command: "git -C {{ wordlists_seclists_dir }} sparse-checkout disable"
+  changed_when: true
+  when:
+    - wordlists_full | default(false)
+    - wordlists_sparse_current.rc == 0
+
+- name: Extract rockyou.txt
+  ansible.builtin.unarchive:
+    src: "{{ wordlists_seclists_dir }}/Passwords/Leaked-Databases/rockyou.txt.tar.gz"
+    dest: "{{ wordlists_dir }}"
+    remote_src: true
+    creates: "{{ wordlists_dir }}/rockyou.txt"
+
+- name: Create alias directories
+  ansible.builtin.file:
+    path: "{{ wordlists_dir }}/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ wordlists_aliases | map(attribute='link') | map('dirname') | select | unique }}"
+
+- name: Create Kali-style aliases
+  ansible.builtin.file:
+    src: "{{ item.target }}"
+    dest: "{{ wordlists_dir }}/{{ item.link }}"
+    state: link
+  loop: "{{ wordlists_aliases }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.link }}"
+
+- name: Check Kali-style system paths
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: wordlists_system_paths
+  loop: "{{ wordlists_system_links }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Link Kali-style system paths to the wordlists
+  become: true
+  ansible.builtin.file:
+    src: "{{ item.item.src }}"
+    dest: "{{ item.item.path }}"
+    state: link
+  loop: "{{ wordlists_system_paths.results }}"
+  loop_control:
+    label: "{{ item.item.path }}"
+  when: not item.stat.exists or item.stat.islnk

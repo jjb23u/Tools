@@ -6,7 +6,7 @@ for **authorized testing and TryHackMe-style labs only**. Two playbooks:
 - `provision.yaml` (laptop / KVM host) spins up an isolated Fedora 43 VM named
   `tools` on its own firewalled network.
 - `site.yaml` (inside the VM) installs the toolkit: fish, CLI tools, Python tools
-  isolated with pipx, wordlists, and optionally the COSMIC desktop.
+  isolated with pipx, a training-sized wordlist set, and the COSMIC desktop.
 
 ## Inventory
 
@@ -52,14 +52,18 @@ The VM's host key is trusted on first connection (`StrictHostKeyChecking=accept-
 and checked on every connection after that. Provisioning a new VM removes the old
 `tools` entry from `~/.ssh/known_hosts` so the new key can be accepted.
 
-## Headless vs COSMIC desktop
+## COSMIC desktop vs headless
 
-The default build is headless. For a GUI build (COSMIC + Wireshark), set
-`with_desktop: true` in `group_vars/all.yaml`, then run **both** playbooks — the
-flag gives the VM a SPICE display at provision time and installs the desktop at
-configure time. Reboot the VM afterward and view it with `virt-viewer tools`.
+The default build has the COSMIC desktop and Wireshark. `with_desktop: true` in
+`group_vars/all.yaml` gives the VM a SPICE display at provision time and installs
+the desktop at configure time. Reboot the VM after the first `site.yaml` run and
+view it with `virt-viewer tools`.
 
-Decide before the first provision: adding graphics to an already-headless VM means
+For a headless build, set `with_desktop: false` (or pass `-e with_desktop=false`
+to both playbooks). Pass it to `bootstrap.sh` too when bootstrapping a machine
+that shouldn't get a desktop.
+
+Decide before the first provision: changing the display on an existing VM means
 reprovisioning (or `virsh edit tools`).
 
 ## Python tools
@@ -79,12 +83,44 @@ analysis venv is exposed as `apy`, so one-liners just work:
 Live capture needs root (or the `wireshark` group, which the desktop build adds);
 reading a pcap does not.
 
+## Wordlists
+
+SecLists is cloned to `~/toolkit/wordlists/seclists` as a shallow, sparse clone:
+git only downloads the lists that are checked out. By default that is the
+training set in `roles/wordlists/defaults/main.yaml` — the web-content, DNS,
+password, username and fuzzing lists TryHackMe-style rooms use, plus `rockyou.txt`
+extracted to `~/toolkit/wordlists/rockyou.txt`. About 290 MB on disk, versus
+roughly 2.6 GB for a full clone.
+
+Kali/AttackBox paths work, so commands from room write-ups run as written:
+
+    /usr/share/wordlists/rockyou.txt
+    /usr/share/wordlists/dirb/common.txt
+    /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
+    /usr/share/wordlists/SecLists/...
+    /usr/share/seclists/...
+
+To add specific larger lists, list their SecLists paths in `wordlists_extra_paths`
+in `group_vars/all.yaml` and re-run `--tags wordlists`:
+
+    wordlists_extra_paths:
+      - /Usernames/xato-net-10-million-usernames.txt
+      - /Discovery/DNS/dns-Jhaddix.txt
+
+To check out everything:
+
+    ansible-playbook site.yaml --tags wordlists -e wordlists_full=true
+
+Running without the flag later shrinks the checkout back to the training set.
+Removed lists stay cached in `.git`; delete `~/toolkit/wordlists/seclists` and
+re-run to reclaim that space.
+
 ## Tags
 
-- `--skip-tags wordlists` — skip the multi-GB wordlist clones
+- `--tags wordlists` — just the wordlists
 - `--tags tools` — just the Go and Python tools
 - `--tags base` — just shell, directories, packages
-- `--tags desktop` — just the COSMIC/GUI layer (with `-e with_desktop=true`)
+- `--tags desktop` — just the COSMIC/GUI layer
 
 ## Versions
 

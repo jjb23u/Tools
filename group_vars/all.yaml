@@ -1,5 +1,8 @@
 ---
-with_desktop: false
+with_desktop: true
+
+wordlists_full: false
+wordlists_extra_paths: []
 
 base_packages:
   - fish
@@ -38,6 +41,3 @@ python_tools:
 python_libs:
   - pyshark
   - scapy
-
-wordlists_repos:
-  - { name: seclists, repo: "https://github.com/danielmiessler/SecLists.git" }
