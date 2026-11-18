@@ -1,7 +1,0 @@
----
-base_directories:
-  - "{{ ansible_env.HOME }}/workspace"
-  - "{{ ansible_env.HOME }}/toolkit/loot"
-  - "{{ ansible_env.HOME }}/toolkit/notes"
-  - "{{ ansible_env.HOME }}/toolkit/wordlists"
-  - "{{ ansible_env.HOME }}/.local/bin"
