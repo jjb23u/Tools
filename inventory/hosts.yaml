@@ -2,5 +2,9 @@ all:
   hosts:
     localhost:
       ansible_connection: local
-    tools:
-      ansible_user: jbutler
+  children:
+    lab:
+      hosts:
+        tools:
+          ansible_user: jbutler
+          ansible_ssh_common_args: "-o StrictHostKeyChecking=accept-new"

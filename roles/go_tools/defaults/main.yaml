@@ -1,2 +1,2 @@
 ---
-go_bin: "{{ ansible_env.HOME }}/go/bin"
+go_tools_bin: "{{ ansible_env.HOME }}/go/bin"

@@ -2,11 +2,11 @@
 - name: Verify SSH public key exists
   ansible.builtin.stat:
     path: "{{ vm_ssh_pubkey_file }}"
-  register: pubkey
+  register: vm_pubkey
 
 - name: Fail if no SSH public key is present
   ansible.builtin.assert:
-    that: pubkey.stat.exists
+    that: vm_pubkey.stat.exists
     fail_msg: "No SSH public key at {{ vm_ssh_pubkey_file }} - create one with: ssh-keygen -t ed25519"
 
 - name: Install virtualization host packages
@@ -20,27 +20,40 @@
       - libvirt-nss
     state: present
 
-- name: Ensure libvirtd is running
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Stop and disable the monolithic libvirtd
   become: true
   ansible.builtin.systemd:
-    name: libvirtd
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ vm_libvirt_monolithic_units }}"
+  when: "'libvirtd.service' in ansible_facts.services"
+
+- name: Enable the modular libvirt daemon sockets
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item }}"
     state: started
     enabled: true
+  loop: "{{ vm_libvirt_sockets }}"
 
-- name: Check nsswitch for libvirt_guest
+- name: Check whether authselect manages nsswitch
   become: true
-  ansible.builtin.command: grep -q libvirt_guest /etc/nsswitch.conf
-  register: nss_check
+  ansible.builtin.command: authselect current
+  register: vm_authselect
   failed_when: false
   changed_when: false
 
 - name: Enable libvirt_guest name resolution on the host
   become: true
   ansible.builtin.replace:
-    path: /etc/nsswitch.conf
-    regexp: '^hosts:(\s+)(.*)$'
-    replace: 'hosts:\1libvirt_guest \2'
-  when: nss_check.rc != 0
+    path: "{{ '/etc/authselect/user-nsswitch.conf' if vm_authselect.rc == 0 else '/etc/nsswitch.conf' }}"
+    regexp: '^hosts:(\s+)(files\s+)?(?!.*\blibvirt_guest\b)(.*)$'
+    replace: 'hosts:\1\2libvirt_guest \3'
+  notify: Apply authselect changes
 
 - name: Deploy firewalld zone for the lab network
   become: true
@@ -48,7 +61,7 @@
     src: firewalld-zone-tools.xml.j2
     dest: /etc/firewalld/zones/tools.xml
     mode: "0644"
-  notify: reload firewalld
+  notify: Reload firewalld
 
 - name: Deploy firewalld policy isolating the lab network from the LAN
   become: true
@@ -56,15 +69,15 @@
     src: firewalld-policy-tools-no-lan.xml.j2
     dest: /etc/firewalld/policies/tools-no-lan.xml
     mode: "0644"
-  notify: reload firewalld
+  notify: Reload firewalld
 
-- name: Apply firewalld changes before starting the network
+- name: Apply nsswitch and firewalld changes before starting the network
   ansible.builtin.meta: flush_handlers
 
 - name: Check whether the lab network exists
   become: true
   ansible.builtin.command: "virsh net-info {{ vm_network_name }}"
-  register: netinfo
+  register: vm_netinfo
   failed_when: false
   changed_when: false
 
@@ -74,7 +87,7 @@
     src: tools-vm-net.xml.j2
     dest: "/var/tmp/{{ vm_network_name }}.xml"
     mode: "0644"
-  when: netinfo.rc != 0
+  when: vm_netinfo.rc != 0
 
 - name: Define and start the lab network
   become: true
@@ -83,12 +96,13 @@
     - "virsh net-define /var/tmp/{{ vm_network_name }}.xml"
     - "virsh net-autostart {{ vm_network_name }}"
     - "virsh net-start {{ vm_network_name }}"
-  when: netinfo.rc != 0
+  changed_when: true
+  when: vm_netinfo.rc != 0
 
 - name: Check whether the VM exists
   become: true
   ansible.builtin.command: "virsh dominfo {{ vm_name }}"
-  register: dominfo
+  register: vm_dominfo
   failed_when: false
   changed_when: false
 
@@ -99,25 +113,26 @@
     dest: "{{ vm_base_image }}"
     checksum: "{{ vm_base_image_checksum | default(omit, true) }}"
     mode: "0644"
-  when: dominfo.rc != 0
+  when: vm_dominfo.rc != 0
 
 - name: Create the VM disk from the base image
   become: true
   ansible.builtin.command:
     cmd: "cp --reflink=auto {{ vm_base_image }} {{ vm_disk }}"
     creates: "{{ vm_disk }}"
-  when: dominfo.rc != 0
+  when: vm_dominfo.rc != 0
 
 - name: Grow the VM disk
   become: true
   ansible.builtin.command: "qemu-img resize {{ vm_disk }} {{ vm_disk_size }}"
-  when: dominfo.rc != 0
+  changed_when: true
+  when: vm_dominfo.rc != 0
 
 - name: Restore SELinux context on the VM disk
   become: true
   ansible.builtin.command: "restorecon -F {{ vm_disk }}"
-  when: dominfo.rc != 0
   changed_when: false
+  when: vm_dominfo.rc != 0
 
 - name: Render cloud-init user-data
   become: true
@@ -125,7 +140,7 @@
     src: cloud-init-user-data.yaml.j2
     dest: "{{ vm_cloudinit_userdata }}"
     mode: "0644"
-  when: dominfo.rc != 0
+  when: vm_dominfo.rc != 0
 
 - name: Create and boot the VM
   become: true
@@ -142,7 +157,14 @@
     --graphics {{ 'spice' if with_desktop | default(false) else 'none' }}
     --cloud-init user-data={{ vm_cloudinit_userdata }}
     --noautoconsole
-  when: dominfo.rc != 0
+  changed_when: true
+  when: vm_dominfo.rc != 0
+
+- name: Forget the previous VM's SSH host key
+  ansible.builtin.known_hosts:
+    name: "{{ vm_name }}"
+    state: absent
+  when: vm_dominfo.rc != 0
 
 - name: Wait for the VM to accept SSH
   ansible.builtin.wait_for:
@@ -150,4 +172,4 @@
     port: 22
     timeout: 300
     delay: 15
-  when: dominfo.rc != 0
+  when: vm_dominfo.rc != 0

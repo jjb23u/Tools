@@ -9,3 +9,5 @@ users:
     ssh_authorized_keys:
       - {{ lookup('ansible.builtin.file', vm_ssh_pubkey_file) }}
 ssh_pwauth: false
+packages:
+  - python3-libdnf5

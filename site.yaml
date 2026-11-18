@@ -1,7 +1,21 @@
 ---
 - name: Configure the tools lab VM
-  hosts: all
+  hosts: lab
   gather_facts: true
+  pre_tasks:
+    - name: Check for cloud-init
+      ansible.builtin.stat:
+        path: /usr/bin/cloud-init
+      register: cloud_init_bin
+      tags: always
+
+    - name: Wait for cloud-init to finish first boot
+      ansible.builtin.command: cloud-init status --wait
+      register: cloud_init_wait
+      changed_when: false
+      failed_when: cloud_init_wait.rc not in [0, 2]
+      when: cloud_init_bin.stat.exists
+      tags: always
   roles:
     - { role: base, tags: [base] }
     - { role: go_tools, tags: [go, tools] }

@@ -18,7 +18,6 @@ base_packages:
   - wireshark-cli
   - python3
   - python3-pip
-  - python3-virtualenv
 
 go_tools:
   - { name: subfinder, pkg: "github.com/projectdiscovery/subfinder/v2/cmd/subfinder", version: latest }
@@ -29,12 +28,12 @@ go_tools:
   - { name: dnsx, pkg: "github.com/projectdiscovery/dnsx/cmd/dnsx", version: latest }
 
 python_tools:
-  - { name: impacket, package: impacket }
-  - { name: netexec, package: netexec }
-  - { name: certipy, package: certipy-ad }
-  - { name: sqlmap, package: sqlmap }
-  - { name: pwntools, package: pwntools }
-  - { name: bloodhound, package: bloodhound }
+  - { name: impacket }
+  - { name: netexec, spec: "git+https://github.com/Pennyw0rth/NetExec" }
+  - { name: certipy-ad }
+  - { name: sqlmap }
+  - { name: pwntools }
+  - { name: bloodhound }
 
 python_libs:
   - pyshark

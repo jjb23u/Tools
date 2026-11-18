@@ -5,7 +5,7 @@ REPO_URL="https://github.com/jjb23u/Tools.git"
 PLAYBOOK="site.yaml"
 
 if ! command -v ansible-pull >/dev/null 2>&1; then
-    sudo dnf install -y ansible git
+    sudo dnf install -y ansible git python3-libdnf5
 fi
 
-ansible-pull -U "$REPO_URL" -i "localhost," --limit localhost "$PLAYBOOK" "$@"
+ansible-pull -U "$REPO_URL" -i inventory/local.yaml "$PLAYBOOK" "$@"
