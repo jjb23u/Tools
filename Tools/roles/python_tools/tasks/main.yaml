@@ -1,0 +1,66 @@
+---
+- name: Install pipx and Python build dependencies
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - pipx
+      - gcc
+      - python3-devel
+      - libffi-devel
+    state: present
+
+- name: Create bin and venv directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ python_tools_bin_dir }}"
+    - "{{ python_tools_venv_root }}"
+
+- name: Remove per-tool venvs from the old layout
+  ansible.builtin.file:
+    path: "{{ python_tools_venv_root }}/{{ item }}"
+    state: absent
+  loop: "{{ python_tools_legacy_venvs }}"
+
+- name: Remove broken PATH links left by the old layout
+  ansible.builtin.command:
+    argv:
+      - find
+      - "{{ python_tools_bin_dir }}"
+      - -maxdepth
+      - "1"
+      - -xtype
+      - l
+      - -lname
+      - "{{ python_tools_venv_root }}/*"
+      - -print
+      - -delete
+  register: python_tools_stale_links
+  changed_when: python_tools_stale_links.stdout | length > 0
+
+- name: Install Python tools with pipx
+  ansible.builtin.command:
+    cmd: "pipx install {{ item.spec | default(item.name) }}"
+    creates: "{{ python_tools_pipx_home }}/venvs/{{ item.name }}"
+  environment:
+    PIPX_HOME: "{{ python_tools_pipx_home }}"
+    PIPX_BIN_DIR: "{{ python_tools_bin_dir }}"
+  loop: "{{ python_tools }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create the analysis venv with network libraries
+  ansible.builtin.pip:
+    name: "{{ python_libs }}"
+    virtualenv: "{{ python_tools_venv_root }}/analysis"
+    virtualenv_command: python3 -m venv
+    state: present
+
+- name: Expose the analysis interpreter as 'apy'
+  ansible.builtin.file:
+    src: "{{ python_tools_venv_root }}/analysis/bin/python"
+    dest: "{{ python_tools_bin_dir }}/apy"
+    state: link
+    force: true

@@ -1,0 +1,11 @@
+---
+- name: Apply authselect changes
+  become: true
+  ansible.builtin.command: authselect apply-changes
+  changed_when: true
+  when: vm_authselect.rc == 0
+
+- name: Reload firewalld
+  become: true
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true

@@ -1,0 +1,7 @@
+---
+- name: Provision the tools lab VM
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - vm
