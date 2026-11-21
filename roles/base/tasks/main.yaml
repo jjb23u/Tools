@@ -36,5 +36,50 @@
 - name: Set fish as the login shell
   become: true
   ansible.builtin.user:
-    name: "{{ ansible_user_id }}"
+    name: "{{ base_login_user }}"
     shell: /usr/bin/fish
+
+- name: Read the login user's password state
+  become: true
+  ansible.builtin.getent:
+    database: shadow
+    key: "{{ base_login_user }}"
+
+- name: Decide whether a login password is needed
+  ansible.builtin.set_fact:
+    base_needs_password: "{{ ansible_facts.getent_shadow[base_login_user][0] in ['', '*'] or ansible_facts.getent_shadow[base_login_user][0] is match('!') }}"
+
+- name: Ask for a login password
+  ansible.builtin.pause:
+    prompt: "No login password is set for {{ base_login_user }} on {{ inventory_hostname }}. Enter one (used for the desktop and console)"
+    echo: false
+  register: base_password
+  no_log: true
+  when: base_needs_password
+
+- name: Confirm the login password
+  ansible.builtin.pause:
+    prompt: "Confirm the password"
+    echo: false
+  register: base_password_confirm
+  no_log: true
+  when: base_needs_password
+
+- name: Check the passwords match and are long enough
+  ansible.builtin.assert:
+    that:
+      - base_password.user_input == base_password_confirm.user_input
+      - base_password.user_input | length >= 8
+    fail_msg: "The passwords didn't match or were shorter than 8 characters. Re-run to try again."
+    quiet: true
+  when: base_needs_password
+
+- name: Set the login password
+  become: true
+  ansible.builtin.command:
+    cmd: /usr/sbin/chpasswd
+    stdin: "{{ base_login_user }}:{{ base_password.user_input }}"
+  changed_when: true
+  no_log: true
+  when: base_needs_password
+

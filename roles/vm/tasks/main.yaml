@@ -47,13 +47,21 @@
   failed_when: false
   changed_when: false
 
-- name: Enable libvirt_guest name resolution on the host
+- name: Enable libvirt name resolution through authselect
+  become: true
+  ansible.builtin.command: authselect enable-feature with-libvirt
+  changed_when: true
+  when:
+    - vm_authselect.rc == 0
+    - "'with-libvirt' not in vm_authselect.stdout"
+
+- name: Enable libvirt_guest name resolution in nsswitch.conf
   become: true
   ansible.builtin.replace:
-    path: "{{ '/etc/authselect/user-nsswitch.conf' if vm_authselect.rc == 0 else '/etc/nsswitch.conf' }}"
+    path: /etc/nsswitch.conf
     regexp: '^hosts:(\s+)(files\s+)?(?!.*\blibvirt_guest\b)(.*)$'
     replace: 'hosts:\1\2libvirt_guest \3'
-  notify: Apply authselect changes
+  when: vm_authselect.rc != 0
 
 - name: Deploy firewalld zone for the lab network
   become: true
@@ -71,7 +79,7 @@
     mode: "0644"
   notify: Reload firewalld
 
-- name: Apply nsswitch and firewalld changes before starting the network
+- name: Apply firewalld changes before starting the network
   ansible.builtin.meta: flush_handlers
 
 - name: Check whether the lab network exists
@@ -154,7 +162,9 @@
     --import
     --osinfo detect=on,require=off
     --network network={{ vm_network_name }},model=virtio
-    --graphics {{ 'spice' if with_desktop | default(false) else 'none' }}
+    --graphics {{ vm_graphics_opts }}
+    {{ vm_video_opts }}
+    --channel unix,target.type=virtio,target.name=org.qemu.guest_agent.0
     --cloud-init user-data={{ vm_cloudinit_userdata }}
     --noautoconsole
   changed_when: true
@@ -173,3 +183,4 @@
     timeout: 300
     delay: 15
   when: vm_dominfo.rc != 0
+

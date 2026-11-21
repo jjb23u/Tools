@@ -1,4 +1,6 @@
 ---
+base_login_user: "{{ ansible_user_id }}"
+
 base_directories:
   - "{{ ansible_env.HOME }}/workspace"
   - "{{ ansible_env.HOME }}/toolkit/loot"

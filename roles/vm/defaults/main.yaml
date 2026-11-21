@@ -1,9 +1,15 @@
 ---
 vm_name: tools
 vm_user: jbutler
-vm_memory: 8192
+vm_memory: 16384
 vm_vcpus: 4
 vm_disk_size: 80G
+
+vm_desktop_gl: true
+vm_desktop: "{{ with_desktop | default(false) | bool }}"
+vm_gl: "{{ vm_desktop_gl | bool }}"
+vm_graphics_opts: "{{ ('spice,listen=none' ~ (',gl.enable=yes' if vm_gl else '')) if vm_desktop else 'none' }}"
+vm_video_opts: "{{ ('--video virtio' ~ (',model.acceleration.accel3d=yes' if vm_gl else '')) if vm_desktop else '' }}"
 
 vm_network_name: tools-vm-net
 vm_network_bridge: virbr-tools
@@ -42,3 +48,4 @@ vm_libvirt_monolithic_units:
   - libvirtd.socket
   - libvirtd-ro.socket
   - libvirtd-admin.socket
+

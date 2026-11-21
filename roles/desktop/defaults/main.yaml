@@ -3,3 +3,5 @@ desktop_group: "@cosmic-desktop-environment"
 
 desktop_packages:
   - wireshark
+  - spice-vdagent
+

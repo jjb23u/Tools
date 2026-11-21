@@ -11,9 +11,9 @@
 - name: Install Go-based tools
   ansible.builtin.command:
     cmd: "go install {{ item.pkg }}@{{ item.version }}"
-    creates: "{{ go_bin }}/{{ item.name }}"
+    creates: "{{ go_tools_bin }}/{{ item.name }}"
   environment:
-    GOBIN: "{{ go_bin }}"
+    GOBIN: "{{ go_tools_bin }}"
     PATH: "/usr/bin:/usr/local/bin:{{ ansible_env.PATH }}"
   loop: "{{ go_tools }}"
   loop_control:

@@ -10,6 +10,7 @@
       tags: always
 
     - name: Wait for cloud-init to finish first boot
+      become: true
       ansible.builtin.command: cloud-init status --wait
       register: cloud_init_wait
       changed_when: false
@@ -21,4 +22,4 @@
     - { role: go_tools, tags: [go, tools] }
     - { role: python_tools, tags: [python, tools] }
     - { role: wordlists, tags: [wordlists] }
-    - { role: desktop, tags: [desktop], when: "with_desktop | default(false)" }
+    - { role: desktop, tags: [desktop], when: "with_desktop | default(false) | bool" }

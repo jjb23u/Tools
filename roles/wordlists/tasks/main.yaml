@@ -41,14 +41,14 @@
     argv: "{{ ['git', '-C', wordlists_seclists_dir, 'sparse-checkout', 'set', '--no-cone'] + wordlists_sparse_paths }}"
   changed_when: true
   when:
-    - not wordlists_full | default(false)
+    - not wordlists_full | default(false) | bool
     - wordlists_sparse_current.rc != 0 or wordlists_sparse_current.stdout_lines != wordlists_sparse_paths
 
 - name: Check out every wordlist  # noqa: command-instead-of-module
   ansible.builtin.command: "git -C {{ wordlists_seclists_dir }} sparse-checkout disable"
   changed_when: true
   when:
-    - wordlists_full | default(false)
+    - wordlists_full | default(false) | bool
     - wordlists_sparse_current.rc == 0
 
 - name: Extract rockyou.txt
@@ -92,3 +92,4 @@
   loop_control:
     label: "{{ item.item.path }}"
   when: not item.stat.exists or item.stat.islnk
+

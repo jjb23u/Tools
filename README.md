@@ -31,7 +31,7 @@ Set two values in `roles/vm/defaults/main.yaml`:
 Installs libvirt (modular daemons), creates the isolated `tools-vm-net` network
 (NAT out, firewalled off your LAN), downloads and verifies the image, and boots the
 VM with your SSH key and passwordless sudo. DHCP assigns the address; the host
-resolves `tools` by name via libvirt's NSS module (configured through authselect),
+resolves `tools` by name via libvirt's NSS module (enabled with authselect's `with-libvirt` feature),
 so no IP is hardcoded.
 
 Needs an SSH key at `~/.ssh/id_ed25519.pub` (`ssh-keygen -t ed25519`).
@@ -46,6 +46,32 @@ Or on the VM itself:
     curl -fsSLO https://raw.githubusercontent.com/jjb23u/Tools/main/bootstrap.sh
     bash bootstrap.sh
 
+## Login password
+
+The VM user is created without a password: SSH is key-only and sudo is
+passwordless. The desktop login and serial console need one, so if the user has
+no usable password, `site.yaml` prompts for it (twice, hidden, 8+ characters)
+and sets it on the VM. Later runs skip the prompt. Nothing is stored in the repo.
+
+To change it later: `ssh tools passwd`.
+
+## Accessing and managing the VM
+
+    ssh tools                                     # terminal
+    virt-viewer --connect qemu:///system tools    # desktop (dnf install virt-viewer)
+    sudo virsh list --all                         # state
+    sudo virsh start|shutdown|reboot tools
+    sudo virsh console tools                      # serial console; Ctrl+] to exit
+
+virt-manager (`dnf install virt-manager`, QEMU/KVM system connection) covers the
+same ground in a GUI, including snapshots.
+
+To rebuild from scratch (the old disk must go, or provisioning reuses it):
+
+    sudo virsh destroy tools
+    sudo virsh undefine tools --remove-all-storage --nvram
+    ansible-playbook provision.yaml -K && ansible-playbook site.yaml
+
 ## SSH host keys
 
 The VM's host key is trusted on first connection (`StrictHostKeyChecking=accept-new`)
@@ -57,7 +83,17 @@ and checked on every connection after that. Provisioning a new VM removes the ol
 The default build has the COSMIC desktop and Wireshark. `with_desktop: true` in
 `group_vars/all.yaml` gives the VM a SPICE display at provision time and installs
 the desktop at configure time. Reboot the VM after the first `site.yaml` run and
-view it with `virt-viewer tools`.
+view it with `virt-viewer --connect qemu:///system tools`.
+
+The VM gets 16 GB of RAM (`vm_memory` in `roles/vm/defaults/main.yaml`) and a
+virtio GPU with 3D acceleration (virgl) rendered on the host's GPU. That's what
+makes a Wayland desktop like COSMIC usable; without it the guest falls back to
+software rendering. It needs a local viewer (virt-viewer or virt-manager) and a
+host GPU with a render node (Intel and AMD work out of the box). If the VM fails
+to start with an EGL/GL error, set `vm_desktop_gl: false` and rebuild.
+
+`spice-vdagent` is installed for display resizing and clipboard sharing.
+Clipboard sharing is limited on Wayland guests; copying over SSH is reliable.
 
 For a headless build, set `with_desktop: false` (or pass `-e with_desktop=false`
 to both playbooks). Pass it to `bootstrap.sh` too when bootstrapping a machine
@@ -65,6 +101,12 @@ that shouldn't get a desktop.
 
 Decide before the first provision: changing the display on an existing VM means
 reprovisioning (or `virsh edit tools`).
+
+## VPN
+
+`wireguard-tools` is installed. Bring a tunnel up from a config file with
+`sudo wg-quick up ./lab.conf` (and `down` to stop), or import it into
+NetworkManager with `nmcli connection import type wireguard file lab.conf`.
 
 ## Python tools
 

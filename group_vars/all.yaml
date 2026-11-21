@@ -21,6 +21,8 @@ base_packages:
   - wireshark-cli
   - python3
   - python3-pip
+  - wireguard-tools
+  - qemu-guest-agent
 
 go_tools:
   - { name: subfinder, pkg: "github.com/projectdiscovery/subfinder/v2/cmd/subfinder", version: latest }
