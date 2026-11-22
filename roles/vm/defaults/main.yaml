@@ -1,51 +1,33 @@
----
-vm_name: tools
-vm_user: jbutler
-vm_memory: 16384
-vm_vcpus: 4
-vm_disk_size: 80G
+jbutler@fedora ~> sudo virsh dommemstat tools
+actual 16777216
+swap_in 0
+swap_out 0
+major_fault 140
+minor_fault 148794
+unused 15983480
+available 16363660
+usable 15882372
+last_update 1795389561
+disk_caches 123252
+hugetlb_pgalloc 0
+hugetlb_pgfail 0
+rss 1981464
 
-vm_desktop_gl: true
-vm_desktop: "{{ with_desktop | default(false) | bool }}"
-vm_gl: "{{ vm_desktop_gl | bool }}"
-vm_graphics_opts: "{{ ('spice,listen=none' ~ (',gl.enable=yes' if vm_gl else '')) if vm_desktop else 'none' }}"
-vm_video_opts: "{{ ('--video virtio' ~ (',model.acceleration.accel3d=yes' if vm_gl else '')) if vm_desktop else '' }}"
-
-vm_network_name: tools-vm-net
-vm_network_bridge: virbr-tools
-vm_network_domain: tools
-vm_network_address: 192.168.150.1
-vm_network_netmask: 255.255.255.0
-vm_dhcp_start: 192.168.150.2
-vm_dhcp_end: 192.168.150.254
-vm_dns_forwarders:
-  - 9.9.9.9
-  - 1.1.1.1
-
-# Pin the image: copy the qcow2 link and its sha256 from
-# https://fedoraproject.org/cloud/download (the URL includes the respin).
-vm_base_image_url: "https://download.fedoraproject.org/pub/fedora/linux/releases/43/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-43-1.6.x86_64.qcow2"
-vm_base_image_checksum: "sha256:846574c8a97cd2d8dc1f231062d73107cc85cbbbda56335e264a46e3a6c8ab2f"
-
-vm_image_dir: /var/lib/libvirt/images
-vm_base_image: "{{ vm_image_dir }}/{{ vm_base_image_url | basename }}"
-vm_disk: "{{ vm_image_dir }}/{{ vm_name }}.qcow2"
-vm_cloudinit_userdata: "/var/tmp/{{ vm_name }}-cloud-init.yaml"
-
-vm_ssh_pubkey_file: "{{ ansible_env.HOME }}/.ssh/id_ed25519.pub"
-
-vm_libvirt_sockets:
-  - virtqemud.socket
-  - virtnetworkd.socket
-  - virtstoraged.socket
-  - virtnodedevd.socket
-  - virtsecretd.socket
-  - virtinterfaced.socket
-  - virtnwfilterd.socket
-
-vm_libvirt_monolithic_units:
-  - libvirtd.service
-  - libvirtd.socket
-  - libvirtd-ro.socket
-  - libvirtd-admin.socket
+jbutler@fedora ~> sudo virsh dominfo tools
+Id:             3
+Name:           tools
+UUID:           28767afc-ad6f-4934-9943-7f3631c5ff88
+OS Type:        hvm
+State:          running
+CPU(s):         4
+CPU time:       53.9s
+Max memory:     16777216 KiB
+Used memory:    16777216 KiB
+Persistent:     yes
+Autostart:      disable
+Autostart Once: disable
+Managed save:   no
+Security model: selinux
+Security DOI:   0
+Security label: system_u:system_r:svirt_t:s0:c400,c536 (enforcing)
 
