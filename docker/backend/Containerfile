@@ -1,0 +1,49 @@
+# syntax=docker/dockerfile:1
+
+FROM fedora:43 AS gobuild
+RUN dnf -y install golang git libpcap-devel && dnf clean all
+ENV GOBIN=/out GOFLAGS=-trimpath
+RUN mkdir -p /out \
+ && go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
+ && go install github.com/projectdiscovery/httpx/cmd/httpx@latest \
+ && go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest \
+ && go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest \
+ && go install github.com/projectdiscovery/katana/cmd/katana@latest \
+ && go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+
+FROM fedora:43
+
+RUN dnf -y install \
+      xfce4-session xfwm4 xfce4-panel xfdesktop xfce4-settings xfce4-terminal \
+      dbus-x11 tigervnc-server dejavu-sans-fonts \
+      fish git curl wget jq ripgrep fd-find tmux procps-ng \
+      nmap nmap-ncat bind-utils whois tcpdump wireshark-cli libpcap \
+      python3 python3-pip pipx \
+      wireguard-tools iproute iputils \
+  && dnf clean all && rm -rf /var/cache/dnf
+
+COPY --from=gobuild /out/ /usr/local/bin/
+
+RUN useradd -m -s /usr/bin/fish toolkit
+
+ENV PATH="/home/toolkit/.local/bin:/usr/local/bin:$PATH"
+
+USER toolkit
+WORKDIR /home/toolkit
+RUN pipx install impacket \
+ && pipx install certipy-ad \
+ && pipx install sqlmap \
+ && pipx install pwntools \
+ && pipx install bloodhound \
+ && pipx install git+https://github.com/Pennyw0rth/NetExec
+
+USER root
+COPY xstartup /home/toolkit/.vnc/xstartup
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN mkdir -p /home/toolkit/work /usr/share/seclists \
+ && chmod +x /home/toolkit/.vnc/xstartup /usr/local/bin/entrypoint.sh \
+ && chown -R toolkit:toolkit /home/toolkit
+
+USER toolkit
+EXPOSE 5901
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

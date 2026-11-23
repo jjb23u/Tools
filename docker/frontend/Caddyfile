@@ -1,0 +1,11 @@
+{
+	auto_https disable_redirects
+}
+
+:8443 {
+	tls internal
+	basicauth {
+		{$FRONTEND_USER} {$FRONTEND_PASSWORD_HASH}
+	}
+	reverse_proxy 127.0.0.1:6080
+}

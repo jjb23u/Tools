@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+FROM fedora:43
+
+RUN dnf -y install novnc python3-websockify caddy \
+  && dnf clean all && rm -rf /var/cache/dnf
+
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 8443
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,0 +1,55 @@
+name: toolkit
+
+services:
+  backend:
+    build: ./docker/backend
+    image: toolkit-backend
+    container_name: toolkit-backend
+    env_file: ./secrets.env
+    dns:
+      - 9.9.9.9
+      - 1.1.1.1
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun
+    volumes:
+      - work:/home/toolkit/work
+      - seclists:/usr/share/seclists
+    networks:
+      - dmz
+      - egress
+    restart: unless-stopped
+
+  frontend:
+    build: ./docker/frontend
+    image: toolkit-frontend
+    container_name: toolkit-frontend
+    env_file: ./secrets.env
+    environment:
+      BACKEND_HOST: backend
+      BACKEND_PORT: "5901"
+    ports:
+      - "127.0.0.1:8443:8443"
+    networks:
+      - edge
+      - dmz
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  edge:
+    driver: bridge
+  dmz:
+    internal: true
+  egress:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.66.0/24
+
+volumes:
+  work:
+  seclists:
